@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+// Camp collection schema used by the Camp API for create, update, list, and interest flows.
 const campSchema = new mongoose.Schema(
   {
     name: {
@@ -25,6 +26,7 @@ const campSchema = new mongoose.Schema(
     },
     startTime: String,
     endTime: String,
+    // Status is restricted here so API writes stay within the supported camp lifecycle.
     campStatus: {
       type: String,
       enum: ["UPCOMING", "ONGOING", "ENDED"],

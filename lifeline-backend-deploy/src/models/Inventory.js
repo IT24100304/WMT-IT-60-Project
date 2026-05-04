@@ -1,5 +1,26 @@
 const mongoose = require("mongoose");
 
+const fileAttachmentSchema = new mongoose.Schema(
+  {
+    filename: String,
+    publicId: String,
+    originalName: String,
+    mimeType: String,
+    fileSize: Number,
+    fileUrl: String,
+    storageProvider: {
+      type: String,
+      enum: ["local", "cloudinary"],
+      default: "local"
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  { _id: false }
+);
+
 const labResultSchema = new mongoose.Schema(
   {
     hiv: {
@@ -18,6 +39,17 @@ const labResultSchema = new mongoose.Schema(
     testedAt: {
       type: Date,
       default: Date.now
+    },
+    testTechnician: String,
+    attachments: [fileAttachmentSchema],
+    positiveDetails: {
+      markerFound: [String],
+      severity: {
+        type: String,
+        enum: ["LOW", "MEDIUM", "HIGH"],
+        default: "MEDIUM"
+      },
+      notes: String
     }
   },
   { _id: false }

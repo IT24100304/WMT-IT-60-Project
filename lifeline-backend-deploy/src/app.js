@@ -28,6 +28,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "LifeLine backend is running",
+    health: "/api/health"
+  });
+});
+
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -40,6 +48,7 @@ app.use("/api/hospitals", hospitalRoutes);
 app.use("/api/camps", campRoutes);
 app.use("/api/donors", donorRoutes);
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/admin/users", adminRoutes);
 app.use("/api/hospital-requests", hospitalRequestRoutes);
 app.use("/api/emergency", emergencyRoutes);

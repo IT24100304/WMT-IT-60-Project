@@ -1,11 +1,27 @@
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+
+const hasCloudinaryConfig = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+if (hasCloudinaryConfig) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+}
 
 const uploadDirectory = path.join(process.cwd(), "uploads");
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
-const storage = multer.diskStorage({
+const localStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDirectory),
   filename: (req, file, cb) => {
     const safeName = file.originalname.replace(/\s+/g, "-");
@@ -13,20 +29,82 @@ const storage = multer.diskStorage({
   }
 });
 
-const fileFilter = (req, file, cb) => {
+const cloudinaryStorage = hasCloudinaryConfig
+  ? new CloudinaryStorage({
+      cloudinary,
+      params: (req, file) => {
+        const folder = process.env.CLOUDINARY_UPLOAD_FOLDER || "lifeline_uploads";
+        const isPdf = file.mimetype === "application/pdf";
+        const safeOriginalName = path
+          .parse(file.originalname || "lab-report.pdf")
+          .name
+          .replace(/[^a-zA-Z0-9_-]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")
+          .toLowerCase();
+        const timestamp = Date.now();
+
+        if (isPdf) {
+          return {
+            folder,
+            resource_type: "raw",
+            public_id: `${timestamp}-${safeOriginalName || "lab-report"}.pdf`,
+            allowed_formats: ["pdf"]
+          };
+        }
+
+        return {
+          folder,
+          resource_type: "image",
+          public_id: `${timestamp}-${safeOriginalName || "lab-image"}`,
+          allowed_formats: ["jpg", "jpeg", "png", "webp"]
+        };
+      }
+    })
+  : null;
+
+const storage = cloudinaryStorage || localStorage;
+
+// Image file filter (original)
+const imageFileFilter = (req, file, cb) => {
   if (!file.mimetype.startsWith("image/")) {
     return cb(new Error("Only image uploads are allowed"));
   }
+  cb(null, true);
+};
 
+// Lab file filter (images + PDFs for test reports)
+const labFileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    "image/jpeg",
+    "image/png",
+    "image/jpg",
+    "image/webp",
+    "application/pdf"
+  ];
+  
+  if (!allowedMimes.includes(file.mimetype)) {
+    return cb(new Error("Only image and PDF files are allowed"));
+  }
   cb(null, true);
 };
 
 const upload = multer({
   storage,
-  fileFilter,
+  fileFilter: imageFileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024
   }
 });
 
+// Lab file upload (images + PDFs)
+const labUpload = multer({
+  storage,
+  fileFilter: labFileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB for PDFs
+  }
+});
+
 module.exports = upload;
+module.exports.labUpload = labUpload;
