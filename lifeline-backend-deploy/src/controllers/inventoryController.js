@@ -76,6 +76,7 @@ const parsePositiveDetails = (value) => {
 };
 
 const getInventory = asyncHandler(async (req, res) => {
+  // Dashboard read: return the latest snapshot for each stored blood bag.
   const items = await Inventory.find({}).sort({ collectedAt: -1 });
   res.status(200).json(
     items.map((item) => ({
@@ -93,6 +94,7 @@ const getInventory = asyncHandler(async (req, res) => {
 });
 
 const getInventoryDetails = asyncHandler(async (req, res) => {
+  // Detail read: expose the full testing history for one inventory record.
   const item = await Inventory.findById(req.params.id);
 
   if (!item) {
@@ -127,6 +129,7 @@ const addInventory = asyncHandler(async (req, res) => {
     bloodType,
     quantity,
     donorName,
+    // New bags always start untested and ready for the lab flow.
     status: "AVAILABLE",
     safetyFlag: "PENDING",
     testStatus: "PENDING"
@@ -136,6 +139,7 @@ const addInventory = asyncHandler(async (req, res) => {
 });
 
 const getLabResults = asyncHandler(async (req, res) => {
+  // Lab history read: return every recorded result for the selected bag.
   const item = await Inventory.findById(req.params.id);
 
   if (!item) {
@@ -169,6 +173,7 @@ const updateLabTest = asyncHandler(async (req, res) => {
     result.attachments = req.files.map(serializeUploadFile);
   }
 
+  // A positive marker immediately changes how the bag can be used downstream.
   const hasPositiveMarker = result.hiv || result.hep || result.malaria;
   item.labResults.push(result);
   item.testStatus = hasPositiveMarker ? "TESTED_POSITIVE" : "TESTED_SAFE";
@@ -191,6 +196,7 @@ const updateLabTest = asyncHandler(async (req, res) => {
 });
 
 const uploadLabTestFiles = asyncHandler(async (req, res) => {
+  // Follow-up upload: attach extra evidence files to the latest lab result only.
   const item = await Inventory.findById(req.params.id);
 
   if (!item) {
@@ -239,6 +245,7 @@ const uploadLabTestFiles = asyncHandler(async (req, res) => {
 });
 
 const updateLabPositiveDetails = asyncHandler(async (req, res) => {
+  // Positive-case enrichment: store extra notes for the most recent failed result.
   const item = await Inventory.findById(req.params.id);
 
   if (!item) {
@@ -277,7 +284,7 @@ const updateLabPositiveDetails = asyncHandler(async (req, res) => {
 const getLowStockAlerts = asyncHandler(async (req, res) => {
   const standardTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
   
-  // Calculate expiry date (42 days ago)
+  // Ignore expired stock when calculating alerts so only usable units count.
   const expiryLimit = new Date();
   expiryLimit.setDate(expiryLimit.getDate() - 42);
 
@@ -306,13 +313,13 @@ const getLowStockAlerts = asyncHandler(async (req, res) => {
 
   const results = await Inventory.aggregate(pipeline);
   
-  // Create a map of existing counts
+  // Convert aggregate output into an easy lookup table by blood type.
   const countsMap = {};
   results.forEach(r => {
     countsMap[r._id] = r.totalUnits;
   });
 
-  // Map against standard types to include 0-unit ones, then filter <= 5
+  // Include every standard blood type, even when the database currently has none.
   const alerts = standardTypes
     .map(type => {
       const units = countsMap[type] || 0;

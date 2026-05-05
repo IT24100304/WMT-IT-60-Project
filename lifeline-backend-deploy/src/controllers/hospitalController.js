@@ -14,6 +14,7 @@ const getHospitals = asyncHandler(async (req, res) => {
     filter.district = district;
   }
 
+  // Directory read: optional province/district filters support nearby-hospital pickers.
   const hospitals = await Hospital.find(filter).sort({ createdAt: -1 });
   res.status(200).json(hospitals.map(serializeHospital));
 });
@@ -26,6 +27,7 @@ const createHospital = asyncHandler(async (req, res) => {
     throw new Error("Name, province, and district are required");
   }
 
+  // Admin write: image upload is optional, so keep it undefined when absent.
   const hospital = await Hospital.create({
     name,
     province,
@@ -40,6 +42,7 @@ const createHospital = asyncHandler(async (req, res) => {
 });
 
 const getHospitalById = asyncHandler(async (req, res) => {
+  // Detail read: fetch one hospital record for admin editing or inspection.
   const hospital = await Hospital.findById(req.params.id);
 
   if (!hospital) {
@@ -51,6 +54,7 @@ const getHospitalById = asyncHandler(async (req, res) => {
 });
 
 const updateHospital = asyncHandler(async (req, res) => {
+  // Load first so the API can return a clean 404 for missing hospital ids.
   const hospital = await Hospital.findById(req.params.id);
 
   if (!hospital) {
@@ -74,6 +78,7 @@ const updateHospital = asyncHandler(async (req, res) => {
 });
 
 const deleteHospital = asyncHandler(async (req, res) => {
+  // Delete is only allowed after confirming the referenced hospital still exists.
   const hospital = await Hospital.findById(req.params.id);
 
   if (!hospital) {

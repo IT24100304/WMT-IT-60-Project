@@ -51,6 +51,7 @@ const getCamps = asyncHandler(async (req, res) => {
   res.status(200).json(camps.map(serializeCamp));
 });
 
+//create camp validation
 const createCamp = asyncHandler(async (req, res) => {
   const { name, province, district, nearestHospital, location, address, googleMapLink, date, startTime, endTime, campStatus } = req.body;
 
@@ -58,8 +59,7 @@ const createCamp = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Name, province, district, and date are required");
   }
-
-  // Validation step: fail fast before attempting the database write.
+  
   res.status(400);
   assertCampPayload({ name, location, address, googleMapLink, date, startTime, endTime });
 

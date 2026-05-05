@@ -4,6 +4,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const logActivity = require("../utils/activityLogger");
 
 const createEmergencyRequest = asyncHandler(async (req, res) => {
+  // Hospital-facing write: record an urgent or normal request for blood units.
   const { bloodType, units, hospital, urgency, reason, hospitalUserId } = req.body;
 
   if (!bloodType || !units || !hospital) {
@@ -20,6 +21,7 @@ const createEmergencyRequest = asyncHandler(async (req, res) => {
     reason
   });
 
+  // Critical requests also drive the alerting experience for admins and lab staff.
   const broadcastTriggered = String(urgency || "").toUpperCase() === "CRITICAL";
   await logActivity(
     "EMERGENCY_REQUEST",
@@ -37,6 +39,7 @@ const createEmergencyRequest = asyncHandler(async (req, res) => {
 });
 
 const getAllRequests = asyncHandler(async (req, res) => {
+  // Admin/lab read: return the request queue ordered from newest to oldest.
   const requests = await EmergencyRequest.find({}).sort({ createdAt: -1 });
   res.status(200).json(
     requests.map((request) => ({
@@ -54,6 +57,7 @@ const getAllRequests = asyncHandler(async (req, res) => {
 });
 
 const fulfillRequest = asyncHandler(async (req, res) => {
+  // Fulfillment starts by loading the request so stock is dispatched against the right blood type.
   const request = await EmergencyRequest.findById(req.params.id);
 
   if (!request) {
@@ -73,6 +77,7 @@ const fulfillRequest = asyncHandler(async (req, res) => {
     $or: [{ safetyFlag: "SAFE" }, { status: "AVAILABLE" }, { status: "SAFE" }]
   }).sort({ collectedAt: 1 });
 
+  // FIFO dispatch uses the oldest matching bags first to reduce avoidable expiry.
   let unitsToDispatch = units;
   for (const bag of stockBags) {
     if (unitsToDispatch <= 0) {
@@ -94,6 +99,7 @@ const fulfillRequest = asyncHandler(async (req, res) => {
     throw new Error(`No safe ${request.bloodType} units are currently available for dispatch`);
   }
 
+  // Request status reflects whether the full demand has been met yet.
   request.unitsFulfilled += fulfilledNow;
   request.status = request.unitsFulfilled >= request.unitsRequested ? "FULFILLED" : "PARTIAL";
   await request.save();
